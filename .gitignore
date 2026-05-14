@@ -1,0 +1,3 @@
+node_modules/
+zapshift-secret.json
+.env
