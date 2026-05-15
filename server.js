@@ -34,7 +34,7 @@ async function run() {
     // database + collection
     const database = client.db("zapShiftDB");
     const parcelCollection = database.collection("parcels");
-    const userCollection = database.collection("user");
+    const userCollection = database.collection("users");
     const riderAppCollection = database.collection("riderApplications");
 
     const { setDb } = require("./middleware/authMiddleware");
