@@ -6,6 +6,8 @@ const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { riderRoutes, setCollections } = require('./routes/riderRoutes');
+const { setDb, protect, admin } = require('./middleware/authMiddleware'); 
+
 
 const app = express();
 
@@ -26,7 +28,6 @@ const client = new MongoClient(uri, {
     }
 });
  
-const { setDb, protect, admin } = require('./middleware/authMiddleware');
 
 async function run() {
     try {
@@ -38,7 +39,12 @@ async function run() {
         const parcelCollection = database.collection('parcels');
         const userCollection = database.collection('user'); 
         const riderAppCollection = database.collection('riderApplications'); 
-        setCollections(riderAppCollection, userCollection);
+
+        const { setDb } = require('./middleware/authMiddleware');
+        setDb(database);
+
+        // 🔥 Set collections for rider routes
+        setCollections(riderAppCollection, userCollection); 
 
         app.use('/api/rider', riderRoutes);
 
