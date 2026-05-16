@@ -111,16 +111,15 @@ async function run() {
     app.post("/users", async (req, res) => {
       try {
         const userData = req.body;
-        userData.role = "user";
-        user.createdAt = new Date();
+        userData.role = userData.role || "user";
+        userData.createdAt = new Date();
+        // If you have Firebase UID, store it
+        // userData.uid = req.body.uid;
         const result = await userCollection.insertOne(userData);
         res.send(result);
       } catch (error) {
         console.log(error);
-        res.status(500).send({
-          success: false,
-          message: error.message,
-        });
+        res.status(500).send({ success: false, message: error.message });
       }
     });
 
@@ -137,6 +136,35 @@ async function run() {
           message: error.message,
         });
       }
+    });
+
+    // ✅ GET all users – Admin only
+    app.get('/users', protect, admin, async (req, res) => {
+      try {
+        // Exclude password field
+        const users = await userCollection.find({}, { projection: { password: 0 } }).toArray();
+        res.json(users);
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: error.message });
+      }
+    });
+
+    // UPDATE user role (admin only)
+    app.put('/users/:id/role', protect, admin, async (req, res) => {
+      const { id } = req.params;
+      const { role } = req.body;
+      if (!['user', 'admin'].includes(role)) {
+        return res.status(400).json({ message: 'Invalid role' });
+      }
+      const result = await userCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { role } }
+      );
+      if (result.matchedCount === 0) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+      res.json({ success: true, message: `Role updated to ${role}` });
     });
 
     // POST PARCEL
