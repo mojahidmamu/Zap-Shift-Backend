@@ -15,6 +15,23 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+const verifyFBToken = async(req, res) => {
+  const token = req.headers.autorization;
+
+  if(token) {
+    return res.status(401).send({message: 'unautorized access'})
+  }
+
+  try{
+    const idToken = token.split(' ')[1];
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    req.decoded_email = decoded.mail;
+    next();
+  } catch(err) {
+    return res.status(401).send({message: 'unautorized access'})
+  }
+}
+
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.pa6ljqy.mongodb.net/zapShiftDB?retryWrites=true&w=majority`;
 
 // Mongo Client
@@ -36,6 +53,19 @@ async function run() {
     const parcelCollection = database.collection("parcels");
     const userCollection = database.collection("users");
     const riderAppCollection = database.collection("riderApplications");
+
+    // middleware : 
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded_email;
+      const query = {email};
+      const user = userCollection.findOne(query);
+      if(!user || user.role !== 'admin') {
+        return res.status(403).send({message: 'Forbidden access'})
+        
+      }
+
+      next();
+    }
 
     const { setDb } = require("./middleware/authMiddleware");
     setDb(database);
@@ -124,7 +154,7 @@ async function run() {
     });
 
     //
-    app.get("/users",jwt.verify,  async (req, res) => {
+    app.get("/users",   async (req, res) => {
       try {
         const cursor = userCollection.find();
         const result = await cursor.toArray();
@@ -154,7 +184,7 @@ async function run() {
 
     })
 
-    app.get('/users/:email/role', async(req, res) => {
+    app.get('/users/:email/role', verifyFBToken, verifyAdmin,  async(req, res) => {
       const email = req.params.email;
       const query = { email };
       const user = await userCollection.findOne(query);
@@ -165,7 +195,7 @@ async function run() {
     });
 
     // UPDATE user role (admin only)
-    app.put('/users/:id/role', protect, admin, async (req, res) => {
+    app.patch('/users/:id/role', protect, admin, async (req, res) => {
       const { id } = req.params;
       const { role } = req.body;
       if (!['user', 'admin'].includes(role)) {
