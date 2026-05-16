@@ -124,7 +124,7 @@ async function run() {
     });
 
     //
-    app.get("/users", async (req, res) => {
+    app.get("/users",jwt.verify,  async (req, res) => {
       try {
         const cursor = userCollection.find();
         const result = await cursor.toArray();
@@ -148,6 +148,20 @@ async function run() {
         console.error(error);
         res.status(500).json({ message: error.message });
       }
+    });
+
+    app.get('/users/:id', async(req, res) => {
+
+    })
+
+    app.get('/users/:email/role', async(req, res) => {
+      const email = req.params.email;
+      const query = { email };
+      const user = await userCollection.findOne(query);
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+      res.send({role: user?.role  || 'user '});
     });
 
     // UPDATE user role (admin only)

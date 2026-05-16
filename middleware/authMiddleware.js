@@ -1,4 +1,4 @@
-const firebaseAdmin = require('../firebaseAdmin'); // rename to avoid conflict
+const firebaseAdmin = require('../firebaseAdmin');  
 const jwt = require('jsonwebtoken');
 const { ObjectId } = require('mongodb');
 
