@@ -1,4 +1,3 @@
-// firebaseAdmin.js
 const admin = require('firebase-admin');
 
 // You need a service account key from Firebase Console

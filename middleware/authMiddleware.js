@@ -11,7 +11,7 @@ const protect = async (req, res, next) => {
   console.log('Received token:', token ? token.substring(0, 20) + '...' : 'NO TOKEN');
   if (!token) return res.status(401).json({ message: 'No token provided' });
   try {
-    const decoded = await admin.auth().verifyIdToken(token);
+    const decoded = await firebaseAdmin.auth().verifyIdToken(token);
     console.log('Token verified for:', decoded.email);
     req.user = { uid: decoded.uid, email: decoded.email, name: decoded.name };
     next();
