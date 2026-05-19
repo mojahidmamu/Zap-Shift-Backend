@@ -14,7 +14,7 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 app.use(cors({
-  origin: ['https://zap-shift-blush.vercel.app'],
+  origin: ['http://localhost:5173', 'https://zap-shift-blush.vercel.app'],
   credentials: true
 }));
 
@@ -403,8 +403,9 @@ async function run() {
 
       try {
           const mailOptions = {
-              from: email,
-              to: 'abdullahallmojahidstudent@gmail.com', // যেখানে mail যাবে
+              from: `"Zap Shift Contact" <${process.env.EMAIL_USER}>`,
+              to: process.env.EMAIL_USER,
+              replyTo: email,
               subject: `New Contact: ${topic}`,
               html: `
                   <h2>New Contact Message</h2>
@@ -419,10 +420,10 @@ async function run() {
           await transporter.sendMail(mailOptions);
 
           res.send({ success: true });
-        } catch (error) {
-            console.error(error);
-            res.status(500).send({ success: false });
-        }
+      } catch (error) {
+          console.error("EMAIL ERROR:", error);
+          res.status(500).send({ success: false, error: error.message });
+      }
     });
 
   } catch (error) {
@@ -440,6 +441,6 @@ app.get("/", (req, res) => {
 });
 
 // START SERVER
-app.listen(port, () => {
+app.listen(process.env.PORT, () => {
   console.log(`🚀 Server running on port ${port}`);
 });
