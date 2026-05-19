@@ -391,7 +391,7 @@ run();
 // ROOT ROUTE
 app.get("/", (req, res) => {
   res.send(
-    "Zap Shift Backend and Server is  Running wit API and Database Connected",
+    "Zap Shift Backend and Server is Running with API and Database Connected",
   );
 });
 
