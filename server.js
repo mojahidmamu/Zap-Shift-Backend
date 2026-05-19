@@ -2,6 +2,7 @@ require("dotenv").config();
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const express = require("express");
 const cors = require("cors");
+const nodemailer = require('nodemailer');
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
@@ -46,6 +47,14 @@ const client = new MongoClient(uri, {
     strict: true,
     deprecationErrors: true,
   },
+});
+
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS  
+    }
 });
 
 async function run() {
@@ -386,6 +395,36 @@ async function run() {
 
       res.send(result);
     });
+
+
+    // Contact route with email: 
+    app.post('/contact', async (req, res) => {
+      const { name, email, topic, details } = req.body;
+
+      try {
+          const mailOptions = {
+              from: email,
+              to: 'abdullahallmojahidstudent@gmail.com', // যেখানে mail যাবে
+              subject: `New Contact: ${topic}`,
+              html: `
+                  <h2>New Contact Message</h2>
+                  <p><strong>Name:</strong> ${name}</p>
+                  <p><strong>Email:</strong> ${email}</p>
+                  <p><strong>Topic:</strong> ${topic}</p>
+                  <p><strong>Details:</strong></p>
+                  <p>${details}</p>
+              `
+          };
+
+          await transporter.sendMail(mailOptions);
+
+          res.send({ success: true });
+        } catch (error) {
+            console.error(error);
+            res.status(500).send({ success: false });
+        }
+    });
+
   } catch (error) {
     console.log("❌ MongoDB Connection Error:", error);
   }
