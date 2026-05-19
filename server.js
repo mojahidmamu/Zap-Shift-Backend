@@ -408,7 +408,7 @@ async function run() {
               replyTo: email,
               subject: `New Contact: ${topic}`,
               html: `
-                  <h2>New Contact Message</h2>
+                  <h2>New Contact Message from Zap Shift </h2>
                   <p><strong>Name:</strong> ${name}</p>
                   <p><strong>Email:</strong> ${email}</p>
                   <p><strong>Topic:</strong> ${topic}</p>
