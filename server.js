@@ -12,7 +12,12 @@ const app = express();
 
 const port = process.env.PORT || 5000;
 
-app.use(cors());
+app.use(cors({
+  origin: ['https://zap-shift-blush.vercel.app'],
+  credentials: true
+}));
+
+// middleware
 app.use(express.json());
 
 const verifyFBToken = async(req, res) => {
