@@ -28,10 +28,10 @@ router.post('/apply', protect, async (req, res) => {
     } = req.body;
 
     // check existing application
-    const existing = await riderAppCollection.findOne({
-      userId: req.user.uid,
-      status: { $in: ['pending', 'approved'] }
-    });
+   const existing = await riderAppCollection.findOne({
+    userId: req.user._id.toString(),
+    status: { $in: ['pending', 'approved'] }
+  });
 
     if (existing) {
       return res.status(400).json({
@@ -40,7 +40,7 @@ router.post('/apply', protect, async (req, res) => {
     }
 
     const newApplication = {
-      userId: req.user.uid,
+      userId: req.user._id.toString(),
       email: req.user.email,
       fullName: fullName || req.user.name,
       phone,
@@ -116,7 +116,7 @@ router.put('/applications/:id', protect, admin, async (req, res) => {
         $set: {
           status,
           reviewedAt: new Date(),
-          reviewedBy: req.user.Uid,
+          reviewedBy: req.user._id.toString(),
           ...(status === 'rejected' && { rejectionReason })
         }
       }
@@ -158,7 +158,9 @@ router.put('/applications/:id', protect, admin, async (req, res) => {
 // ✅ Get logged-in rider's own application
 router.get('/my-application', protect, async (req, res) => {
   try {
-    const application = await riderAppCollection.findOne({ userId: req.user.uid });
+    const application = await riderAppCollection.findOne({
+      userId: req.user._id.toString()
+    });
     if (!application) {
       return res.status(404).json({ message: 'No application found' });
     }

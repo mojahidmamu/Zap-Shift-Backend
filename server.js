@@ -21,17 +21,19 @@ app.use(cors({
 // middleware
 app.use(express.json());
 
-const verifyFBToken = async(req, res) => {
-  const token = req.headers.autorization;
+const verifyFBToken = async(req, res, next) => {
+  const token = req.headers.authorization;
 
-  if(token) {
-    return res.status(401).send({message: 'unautorized access'})
+  if(!token) {
+    return res.status(401).send({
+      message: 'unautorized access'
+    })
   }
 
   try{
     const idToken = token.split(' ')[1];
     const decoded = await admin.auth().verifyIdToken(idToken);
-    req.decoded_email = decoded.mail;
+    req.decoded_email = decoded.email;
     next();
   } catch(err) {
     return res.status(401).send({message: 'unautorized access'})
@@ -72,10 +74,10 @@ async function run() {
     const verifyAdmin = async (req, res, next) => {
       const email = req.decoded_email;
       const query = {email};
-      const user = userCollection.findOne(query);
+      const user = await userCollection.findOne(query);
+
       if(!user || user.role !== 'admin') {
         return res.status(403).send({message: 'Forbidden access'})
-        
       }
 
       next();
@@ -442,5 +444,6 @@ app.get("/", (req, res) => {
 
 // START SERVER
 app.listen(process.env.PORT, () => {
-  console.log(`🚀 Server running on port ${port}`);
+  console.log(`🚀 Server running on port ${process.env.PORT}`);
+  console.log(`✅ Email configured for: abdullahallmojahidstudent@gmail.com`); 
 });

@@ -7,17 +7,44 @@ const setDb = (database) => { db = database; };
 
 // ✅ Protect routes – verify Firebase ID token
 const protect = async (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1];
-  console.log('Received token:', token ? token.substring(0, 20) + '...' : 'NO TOKEN');
-  if (!token) return res.status(401).json({ message: 'No token provided' });
   try {
-    const decoded = await firebaseAdmin.auth().verifyIdToken(token);
-    console.log('Token verified for:', decoded.email);
-    req.user = { uid: decoded.uid, email: decoded.email, name: decoded.name };
+    const token = req.headers.authorization?.split(" ")[1];
+
+    if (!token) {
+      return res.status(401).json({
+        message: "No token",
+      });
+    }
+
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET
+    );
+
+    const user = await db
+      .collection("users")
+      .findOne({
+        _id: new ObjectId(decoded.id),
+      });
+
+    if (!user) {
+      return res.status(401).json({
+        message: "User not found",
+      });
+    }
+
+    req.user = user;
+
     next();
-  } catch (error) {
-    console.error('Verification error:', error.message);
-    return res.status(401).json({ message: 'Invalid or expired token' });
+
+    // 
+    console.log("USER:", user);
+  } catch (err) {
+    console.log(err);
+
+    res.status(401).json({
+      message: "Unauthorized",
+    });
   }
 };
 
