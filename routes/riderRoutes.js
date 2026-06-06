@@ -155,4 +155,17 @@ router.put('/applications/:id', protect, admin, async (req, res) => {
   }
 });
 
+// ✅ Get logged-in rider's own application
+router.get('/my-application', protect, async (req, res) => {
+  try {
+    const application = await riderAppCollection.findOne({ userId: req.user.uid });
+    if (!application) {
+      return res.status(404).json({ message: 'No application found' });
+    }
+    res.json(application);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 module.exports = { riderRoutes: router, setCollections };
