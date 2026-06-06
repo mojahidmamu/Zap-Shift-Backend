@@ -16,15 +16,16 @@ const protect = async (req, res, next) => {
       });
     }
 
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET
-    );
+    // Verify Firebase Token
+    const decoded = await firebaseAdmin
+      .auth()
+      .verifyIdToken(token);
 
+    // Find user from MongoDB using email
     const user = await db
       .collection("users")
       .findOne({
-        _id: new ObjectId(decoded.id),
+        email: decoded.email,
       });
 
     if (!user) {
@@ -37,10 +38,8 @@ const protect = async (req, res, next) => {
 
     next();
 
-    // 
-    console.log("USER:", user);
   } catch (err) {
-    console.log(err);
+    console.error(err);
 
     res.status(401).json({
       message: "Unauthorized",
