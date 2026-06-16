@@ -69,6 +69,7 @@ async function run() {
     const parcelCollection = database.collection("parcels");
     const userCollection = database.collection("users");
     const riderAppCollection = database.collection("riderApplications");
+    const contactCollection = database.collection("contacts");
 
     // middleware : 
     const verifyAdmin = async (req, res, next) => {
