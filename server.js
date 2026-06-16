@@ -406,11 +406,23 @@ async function run() {
       res.send(result);
     });
 
-    // Contact route with email-(This mail will be sent to the admin email configured):
+    // Contact route with email-(This mail will be sent to the admin email configured) and database storage:
     app.post("/contact", async (req, res) => {
       const { name, email, topic, details } = req.body;
 
       try {
+         // Save to Database
+        const contactData = {
+          name,
+          email,
+          subject: topic,
+          message: details,
+          status: "unread",
+          createdAt: new Date(),
+        };
+        const dbResult = await contactCollection.insertOne(contactData);
+
+        // send mail: 
         const mailOptions = {
           from: `"Zap Shift Contact" <${process.env.EMAIL_USER}>`,
           to: process.env.EMAIL_USER,
@@ -428,39 +440,17 @@ async function run() {
 
         await transporter.sendMail(mailOptions);
 
-        res.send({ success: true });
+        res.status(201).send({
+          success: true,
+          insertedId: dbResult.insertedId,
+          message: "Message sent and saved successfully",
+        });
       } catch (error) {
         console.error("EMAIL ERROR:", error);
         res.status(500).send({ success: false, error: error.message });
       }
     });
-
-    // Contacts list: all contacts will be stored in the database and can be retrieved by the admin
-    app.post("/contacts", async (req, res) => {
-      try {
-        const { name, email, subject, message } = req.body;
-        const contactData = {
-          name,
-          email,
-          subject,
-          message,
-          status: "unread",
-          createdAt: new Date(),
-        };
-        const result = await contactCollection.insertOne(contactData);
-
-        res.status(201).send({
-          success: true,
-          message: "Message submitted successfully",
-          insertedId: result.insertedId,
-        });
-
-      } catch (error) {
-        console.error("CONTACT ERROR:", error);
-        res.status(500).send({ success: false, error: error.message });
-      }
-    });
-
+    
     // Admin - Get All Contact Messages
     app.get('/contacts', async (req, res) => {
         try {
