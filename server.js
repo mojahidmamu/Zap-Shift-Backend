@@ -2,7 +2,7 @@ require("dotenv").config();
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const express = require("express");
 const cors = require("cors");
-const nodemailer = require('nodemailer');
+const nodemailer = require("nodemailer");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
@@ -13,32 +13,34 @@ const app = express();
 
 const port = process.env.PORT || 5000;
 
-app.use(cors({
-  origin: ['http://localhost:5173', 'https://zap-shift-blush.vercel.app'],
-  credentials: true
-}));
+app.use(
+  cors({
+    origin: ["http://localhost:5173", "https://zap-shift-blush.vercel.app"],
+    credentials: true,
+  }),
+);
 
 // middleware
 app.use(express.json());
 
-const verifyFBToken = async(req, res, next) => {
+const verifyFBToken = async (req, res, next) => {
   const token = req.headers.authorization;
 
-  if(!token) {
+  if (!token) {
     return res.status(401).send({
-      message: 'unautorized access'
-    })
+      message: "unautorized access",
+    });
   }
 
-  try{
-    const idToken = token.split(' ')[1];
+  try {
+    const idToken = token.split(" ")[1];
     const decoded = await admin.auth().verifyIdToken(idToken);
     req.decoded_email = decoded.email;
     next();
-  } catch(err) {
-    return res.status(401).send({message: 'unautorized access'})
+  } catch (err) {
+    return res.status(401).send({ message: "unautorized access" });
   }
-}
+};
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.pa6ljqy.mongodb.net/zapShiftDB?retryWrites=true&w=majority`;
 
@@ -52,11 +54,11 @@ const client = new MongoClient(uri, {
 });
 
 const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS  
-    }
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
 });
 
 async function run() {
@@ -71,18 +73,18 @@ async function run() {
     const riderAppCollection = database.collection("riderApplications");
     const contactCollection = database.collection("contacts");
 
-    // middleware : 
+    // middleware :
     const verifyAdmin = async (req, res, next) => {
       const email = req.decoded_email;
-      const query = {email};
+      const query = { email };
       const user = await userCollection.findOne(query);
 
-      if(!user || user.role !== 'admin') {
-        return res.status(403).send({message: 'Forbidden access'})
+      if (!user || user.role !== "admin") {
+        return res.status(403).send({ message: "Forbidden access" });
       }
 
       next();
-    }
+    };
 
     const { setDb } = require("./middleware/authMiddleware");
     setDb(database);
@@ -171,7 +173,7 @@ async function run() {
     });
 
     //
-    app.get("/users",   async (req, res) => {
+    app.get("/users", async (req, res) => {
       try {
         const cursor = userCollection.find();
         const result = await cursor.toArray();
@@ -186,10 +188,12 @@ async function run() {
     });
 
     // ✅ GET all users – Admin only
-    app.get('/users', protect, admin, async (req, res) => {
+    app.get("/users", protect, admin, async (req, res) => {
       try {
         // Exclude password field
-        const users = await userCollection.find({}, { projection: { password: 0 } }).toArray();
+        const users = await userCollection
+          .find({}, { projection: { password: 0 } })
+          .toArray();
         res.json(users);
       } catch (error) {
         console.error(error);
@@ -197,33 +201,36 @@ async function run() {
       }
     });
 
-    app.get('/users/:id', async(req, res) => {
+    app.get("/users/:id", async (req, res) => {});
 
-    })
-
-    app.get('/users/:email/role', verifyFBToken, verifyAdmin,  async(req, res) => {
-      const email = req.params.email;
-      const query = { email };
-      const user = await userCollection.findOne(query);
-      if (!user) {
-        return res.status(404).json({ message: 'User not found' });
-      }
-      res.send({role: user?.role  || 'user '});
-    });
+    app.get(
+      "/users/:email/role",
+      verifyFBToken,
+      verifyAdmin,
+      async (req, res) => {
+        const email = req.params.email;
+        const query = { email };
+        const user = await userCollection.findOne(query);
+        if (!user) {
+          return res.status(404).json({ message: "User not found" });
+        }
+        res.send({ role: user?.role || "user " });
+      },
+    );
 
     // UPDATE user role (admin only)
-    app.patch('/users/:id/role', protect, admin, async (req, res) => {
+    app.patch("/users/:id/role", protect, admin, async (req, res) => {
       const { id } = req.params;
       const { role } = req.body;
-      if (!['user', 'admin'].includes(role)) {
-        return res.status(400).json({ message: 'Invalid role' });
+      if (!["user", "admin"].includes(role)) {
+        return res.status(400).json({ message: "Invalid role" });
       }
       const result = await userCollection.updateOne(
         { _id: new ObjectId(id) },
-        { $set: { role } }
+        { $set: { role } },
       );
       if (result.matchedCount === 0) {
-        return res.status(404).json({ message: 'User not found' });
+        return res.status(404).json({ message: "User not found" });
       }
       res.json({ success: true, message: `Role updated to ${role}` });
     });
@@ -399,35 +406,125 @@ async function run() {
       res.send(result);
     });
 
-
-    // Contact route with email: 
-    app.post('/contact', async (req, res) => {
+    // Contact route with email-(This mail will be sent to the admin email configured):
+    app.post("/contact", async (req, res) => {
       const { name, email, topic, details } = req.body;
 
       try {
-          const mailOptions = {
-              from: `"Zap Shift Contact" <${process.env.EMAIL_USER}>`,
-              to: process.env.EMAIL_USER,
-              replyTo: email,
-              subject: `New Contact: ${topic}`,
-              html: `
+        const mailOptions = {
+          from: `"Zap Shift Contact" <${process.env.EMAIL_USER}>`,
+          to: process.env.EMAIL_USER,
+          replyTo: email,
+          subject: `New Contact: ${topic}`,
+          html: `
                   <h2>New Contact Message from Zap Shift </h2>
                   <p><strong>Name:</strong> ${name}</p>
                   <p><strong>Email:</strong> ${email}</p>
                   <p><strong>Topic:</strong> ${topic}</p>
                   <p><strong>Details:</strong></p>
                   <p>${details}</p>
-              `
-          };
+              `,
+        };
 
-          await transporter.sendMail(mailOptions);
+        await transporter.sendMail(mailOptions);
 
-          res.send({ success: true });
+        res.send({ success: true });
       } catch (error) {
-          console.error("EMAIL ERROR:", error);
-          res.status(500).send({ success: false, error: error.message });
+        console.error("EMAIL ERROR:", error);
+        res.status(500).send({ success: false, error: error.message });
       }
     });
+
+    // Contacts list: all contacts will be stored in the database and can be retrieved by the admin
+    app.post("/contacts", async (req, res) => {
+      try {
+        const { name, email, subject, message } = req.body;
+        const contactData = {
+          name,
+          email,
+          subject,
+          message,
+          status: "unread",
+          createdAt: new Date(),
+        };
+        const result = await contactCollection.insertOne(contactData);
+
+        res.status(201).send({
+          success: true,
+          message: "Message submitted successfully",
+          insertedId: result.insertedId,
+        });
+
+      } catch (error) {
+        console.error("CONTACT ERROR:", error);
+        res.status(500).send({ success: false, error: error.message });
+      }
+    });
+
+    // Admin - Get All Contact Messages
+    app.get('/contacts', async (req, res) => {
+        try {
+            const result = await contactCollection
+                .find()
+                .sort({ createdAt: -1 })
+                .toArray();
+            res.send(result);
+        } catch (error) {
+            res.status(500).send({
+                success: false,
+                message: error.message
+            });
+
+        }
+    });
+
+    // Mark Message As Read: 
+    app.patch('/contacts/:id/read', async (req, res) => {
+      try{
+        const {id} = req.params;
+        const result = await contactCollection.updateOne(
+          {_id: new ObjectId(id)},
+          {
+                $set: {
+                    status: 'read'
+                }
+            }
+          );
+        res.send({
+          success: true,
+          message: "Message marked as read successfully",
+          modifiedCount: result.modifiedCount,
+
+        })
+      } 
+      catch(error){
+        res.status(500).send({
+            success: false,
+            message: error.message
+        });
+      }
+    })
+
+    // Delete Contact Message: 
+    app.delete('/contacts/:id', async (req, res) => {
+      try{
+        const {id} = req.params;
+        const result = await contactCollection.deleteOne({_id: new ObjectId(id)});
+        res.send({
+          success: true,
+          message: "Message deleted successfully",
+          deletedCount: result.deletedCount,
+
+        })
+      } 
+      catch(error){
+        res.status(500).send({
+            success: false,
+            message: error.message
+        });
+      }
+    })
+
 
   } catch (error) {
     console.log("❌ MongoDB Connection Error:", error);
@@ -446,5 +543,5 @@ app.get("/", (req, res) => {
 // START SERVER
 app.listen(process.env.PORT, () => {
   console.log(`🚀 Server running on port ${process.env.PORT}`);
-  console.log(`✅ Email configured for: abdullahallmojahidstudent@gmail.com`); 
+  console.log(`✅ Email configured for: abdullahallmojahidstudent@gmail.com`);
 });
