@@ -1,55 +1,41 @@
-const firebaseAdmin = require('../firebaseAdmin');  
-const jwt = require('jsonwebtoken');
+const firebaseAdmin = require('../firebaseAdmin');
 const { ObjectId } = require('mongodb');
 
 let db;
 const setDb = (database) => { db = database; };
 
-// ✅ Protect routes – verify Firebase ID token
+// ✅ Protect – verify Firebase token and attach user from DB
 const protect = async (req, res, next) => {
   try {
-    const token = req.headers.authorization?.split(" ")[1];
-
+    const token = req.headers.authorization?.split(' ')[1];
     if (!token) {
-      return res.status(401).json({
-        message: "No token",
-      });
+      return res.status(401).json({ message: 'No token provided' });
     }
 
-    // Verify Firebase Token
-    const decoded = await firebaseAdmin
-      .auth()
-      .verifyIdToken(token);
+    // Verify Firebase ID token
+    const decoded = await firebaseAdmin.auth().verifyIdToken(token);
+    if (!decoded) {
+      return res.status(401).json({ message: 'Invalid token' });
+    }
 
-    // Find user from MongoDB using email
-    const user = await db
-      .collection("users")
-      .findOne({
-        email: decoded.email,
-      });
-
+    // Find the user in your MongoDB (collection name: "users")
+    const user = await db.collection('users').findOne({ email: decoded.email });
     if (!user) {
-      return res.status(401).json({
-        message: "User not found",
-      });
+      return res.status(401).json({ message: 'User not found in database' });
     }
 
+    // Attach the full user document (including _id, role, etc.)
     req.user = user;
-
     next();
-
-  } catch (err) {
-    console.error(err);
-
-    res.status(401).json({
-      message: "Unauthorized",
-    });
+  } catch (error) {
+    console.error('Auth error:', error);
+    res.status(401).json({ message: 'Unauthorized' });
   }
 };
 
-// ✅ Admin middleware – check if user is admin (by email or custom logic)
-const admin = async (req, res, next) => {
-  if (req.user.email === process.env.ADMIN_EMAIL) {
+// ✅ Admin – simply check `req.user.role`
+const admin = (req, res, next) => {
+  if (req.user && req.user.role === 'admin') {
     next();
   } else {
     res.status(403).json({ message: 'Admin access required' });
