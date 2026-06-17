@@ -169,5 +169,28 @@ router.get('/my-application', protect, async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+ 
+
+// PUT update parcel status (rider)
+// router.put('/api/parcels/:id/status', protect, async (req, res) => {
+//   const { id } = req.params;
+//   const { status } = req.body;
+//   await parcelCollection.updateOne(
+//     { _id: new ObjectId(id), riderId: req.user._id.toString() },
+//     { $set: { status } }
+//   );
+//   res.json({ success: true });
+// });
+
+// // ✅ Get parcels assigned to the logged‑in rider
+// router.get('/my-parcels', protect, async (req, res) => {
+//   try {
+//     const riderId = req.user._id.toString(); // from protect middleware
+//     const parcels = await parcelCollection.find({ riderId }).toArray();
+//     res.json(parcels);
+//   } catch (error) {
+//     res.status(500).json({ message: error.message });
+//   }
+// });
 
 module.exports = { riderRoutes: router, setCollections };

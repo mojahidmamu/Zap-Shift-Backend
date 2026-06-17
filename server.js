@@ -516,6 +516,269 @@ async function run() {
     })
 
 
+  
+   // PARCEL ASSIGNMENT (Admin) 
+
+    // GET unassigned parcels (riderId is null)
+    app.get('/api/parcels/unassigned', protect, admin, async (req, res) => {
+      try {
+        const parcels = await parcelCollection.find({ riderId: null }).toArray();
+        res.json(parcels);
+      } catch (error) {
+        res.status(500).json({ message: error.message });
+      }
+    });
+
+    // GET all riders (users with isRider: true)
+    app.get('/api/users/riders', protect, admin, async (req, res) => {
+      try {
+        const riders = await userCollection.find({ isRider: true }).toArray();
+        res.json(riders);
+      } catch (error) {
+        res.status(500).json({ message: error.message });
+      }
+    });
+
+    // PUT assign a rider to a parcel
+    app.put('/api/parcels/:id/assign', protect, admin, async (req, res) => {
+      try {
+        const { id } = req.params;
+        const { riderId } = req.body;
+        const result = await parcelCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { riderId, status: 'assigned' } }
+        );
+        if (result.matchedCount === 0) {
+          return res.status(404).json({ message: 'Parcel not found' });
+        }
+        res.json({ success: true, message: 'Rider assigned successfully' });
+      } catch (error) {
+        res.status(500).json({ message: error.message });
+      }
+    });
+
+    //   RIDER PARCEL ACTIONS 
+
+    // GET parcels assigned to the logged‑in rider
+    app.get('/api/rider/my-parcels', protect, async (req, res) => {
+      try {
+        const riderId = req.user._id.toString();
+        const parcels = await parcelCollection.find({ riderId }).toArray();
+        res.json(parcels);
+      } catch (error) {
+        res.status(500).json({ message: error.message });
+      }
+    });
+
+    // PUT rider accepts or rejects the assignment
+    app.put('/api/parcels/:id/rider-action', protect, async (req, res) => {
+      try {
+        const { id } = req.params;
+        const { action } = req.body; // 'accept' or 'reject'
+        const riderId = req.user._id.toString();
+
+        const parcel = await parcelCollection.findOne({ _id: new ObjectId(id), riderId });
+        if (!parcel) {
+          return res.status(404).json({ message: 'Parcel not found or not assigned to you' });
+        }
+
+        let newStatus = action === 'accept' ? 'accepted' : 'rejected';
+        await parcelCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { status: newStatus } }
+        );
+        res.json({ success: true, message: `You ${action}ed the delivery` });
+      } catch (error) {
+        res.status(500).json({ message: error.message });
+      }
+    });
+
+    // PUT rider marks delivery as complete
+    app.put('/api/parcels/:id/complete', protect, async (req, res) => {
+      try {
+        const { id } = req.params;
+        const riderId = req.user._id.toString();
+
+        const parcel = await parcelCollection.findOne({ _id: new ObjectId(id), riderId });
+        if (!parcel) {
+          return res.status(404).json({ message: 'Parcel not found' });
+        }
+
+        await parcelCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { status: 'delivered', completedAt: new Date() } }
+        );
+        res.json({ success: true, message: 'Delivery completed successfully' });
+      } catch (error) {
+        res.status(500).json({ message: error.message });
+      }
+    });
+
+
+    //   ADMIN: PENDING PARCELS 
+    app.get('/api/parcels/pending', protect, admin, async (req, res) => {
+      try {
+        const parcels = await parcelCollection.find({ status: 'pending' }).toArray();
+        res.json(parcels);
+      } catch (error) {
+        res.status(500).json({ message: error.message });
+      }
+    });
+
+    // ---------------------------------------------
+    //   ADMIN: AVAILABLE RIDERS  
+    app.get('/api/users/available-riders', protect, admin, async (req, res) => {
+      try {
+        const riders = await userCollection.find({
+          role: 'rider',
+          riderStatus: 'approved',
+          availability: 'available'
+        }).toArray();
+        // you may also want to include only certain fields
+        res.json(riders);
+      } catch (error) {
+        res.status(500).json({ message: error.message });
+      }
+    });
+
+    //   ADMIN: ASSIGN RIDER 
+    app.put('/api/parcels/:id/assign', protect, admin, async (req, res) => {
+      const { id } = req.params;
+      const { riderId } = req.body;
+      try {
+        // get rider details
+        const rider = await userCollection.findOne({ _id: new ObjectId(riderId) });
+        if (!rider) {
+          return res.status(404).json({ message: 'Rider not found' });
+        }
+
+        // update parcel
+        const result = await parcelCollection.updateOne(
+          { _id: new ObjectId(id) },
+          {
+            $set: {
+              riderId: rider._id.toString(),
+              riderName: rider.name,
+              riderEmail: rider.email,
+              status: 'assigned',
+              assignedAt: new Date()
+            }
+          }
+        );
+        if (result.matchedCount === 0) {
+          return res.status(404).json({ message: 'Parcel not found' });
+        }
+
+        // update rider availability to busy
+        await userCollection.updateOne(
+          { _id: new ObjectId(riderId) },
+          { $set: { availability: 'busy' } }
+        );
+
+        res.json({ success: true, message: 'Rider assigned successfully' });
+      } catch (error) {
+        res.status(500).json({ message: error.message });
+      }
+    });
+
+    //   RIDER: ACCEPT ASSIGNMENT  
+    app.put('/api/parcels/:id/accept', protect, async (req, res) => {
+      const { id } = req.params;
+      const riderId = req.user._id.toString();
+
+      try {
+        const parcel = await parcelCollection.findOne({ _id: new ObjectId(id), riderId });
+        if (!parcel) {
+          return res.status(404).json({ message: 'Parcel not assigned to you' });
+        }
+        if (parcel.status !== 'assigned') {
+          return res.status(400).json({ message: 'Parcel is not in assigned status' });
+        }
+
+        await parcelCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { status: 'picked_up' } }
+        );
+        res.json({ success: true, message: 'You accepted the delivery' });
+      } catch (error) {
+        res.status(500).json({ message: error.message });
+      }
+    });
+
+    //   RIDER: REJECT ASSIGNMENT  
+    app.put('/api/parcels/:id/reject', protect, async (req, res) => {
+      const { id } = req.params;
+      const riderId = req.user._id.toString();
+
+      try {
+        const parcel = await parcelCollection.findOne({ _id: new ObjectId(id), riderId });
+        if (!parcel) {
+          return res.status(404).json({ message: 'Parcel not assigned to you' });
+        }
+        if (parcel.status !== 'assigned') {
+          return res.status(400).json({ message: 'Parcel is not in assigned status' });
+        }
+
+        await parcelCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { status: 'rejected' } }
+        );
+
+        // also free the rider (set availability back to available) because rider rejected
+        await userCollection.updateOne(
+          { _id: new ObjectId(riderId) },
+          { $set: { availability: 'available' } }
+        );
+
+        res.json({ success: true, message: 'You rejected the delivery' });
+      } catch (error) {
+        res.status(500).json({ message: error.message });
+      }
+    });
+
+    //   RIDER: COMPLETE DELIVERY  
+    app.put('/api/parcels/:id/complete', protect, async (req, res) => {
+      const { id } = req.params;
+      const riderId = req.user._id.toString();
+
+      try {
+        const parcel = await parcelCollection.findOne({ _id: new ObjectId(id), riderId });
+        if (!parcel) {
+          return res.status(404).json({ message: 'Parcel not assigned to you' });
+        }
+        if (parcel.status !== 'picked_up') {
+          return res.status(400).json({ message: 'Parcel is not in picked_up status' });
+        }
+
+        await parcelCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { status: 'delivered', completedAt: new Date() } }
+        );
+
+        // free the rider
+        await userCollection.updateOne(
+          { _id: new ObjectId(riderId) },
+          { $set: { availability: 'available' } }
+        );
+
+        res.json({ success: true, message: 'Delivery completed successfully' });
+      } catch (error) {
+        res.status(500).json({ message: error.message });
+      }
+    });
+
+    //  RIDER: GET MY PARCELS  
+    app.get('/api/rider/my-parcels', protect, async (req, res) => {
+      try {
+        const riderId = req.user._id.toString();
+        const parcels = await parcelCollection.find({ riderId }).toArray();
+        res.json(parcels);
+      } catch (error) {
+        res.status(500).json({ message: error.message });
+      }
+    });
+
+
   } catch (error) {
     console.log("❌ MongoDB Connection Error:", error);
   }
