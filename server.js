@@ -516,7 +516,7 @@ async function run() {
     })
 
 
-  
+
    // PARCEL ASSIGNMENT (Admin) 
 
     // GET unassigned parcels (riderId is null)
@@ -776,6 +776,95 @@ async function run() {
       } catch (error) {
         res.status(500).json({ message: error.message });
       }
+    });
+
+
+    // ADMIN EMAIL VERIFICATION & OTP =======
+    // Generate a 6-digit OTP
+    const generateOTP = () => {
+      return Math.floor(100000 + Math.random() * 900000).toString();
+    };
+    let otpStore = {}; // In-memory store for OTPs (use Redis or DB in production)
+
+    // Route 1: Request OTP – check admin email & send OTP
+    app.post('/api/admin/request-otp', async (req, res) => {
+      const { email } = req.body;
+      const adminEmail = process.env.ADMIN_EMAIL;
+
+      if(!email || email.trim() !== adminEmail) {
+        return res.status(403).json({message: "Unauthorized: Email does not match admin email"});
+      }
+
+      const otp = generateOTP();
+      const expiresAt = Date.now() + 5 * 60 * 1000; // OTP valid for 5 minutes
+      otpStore[email] = { otp, expiresAt };
+
+      // send OTP email
+      try{
+        const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS,
+          },
+        }); 
+
+        await transporter.sendMail({
+          from: `"Zap Shift Admin Verification" <${process.env.EMAIL_USER}>`,
+          to: email,
+          subject: 'Admin Login Verification Code', 
+          html: `
+            <h2>Your Admin Verification Code</h2>
+            <p>Use the following 6-digit code to access the admin dashboard:</p>
+            <h1 style="color: #4f46e5; font-size: 2rem;">${otp}</h1>
+            <p>This code expires in 5 minutes.</p>
+            <p>If you didn't request this, ignore this email.</p>`
+        });
+
+        res.json({ success: true, message: "OTP sent to admin email" });
+
+      } catch(error) {
+        console.log('Email send error',error);
+        res.status(500).json({message: "Failed to send OTP email"});
+      }
+    });
+
+    // Route 2: Verify OTP
+    app.post('/api/admin/verify-otp', (req, res) => {
+      const { email, otp } = req.body;
+      const adminEmail = process.env.ADMIN_EMAIL;
+
+      if (email !== adminEmail) {
+        return res.status(401).json({ message: 'Invalid email' });
+      }
+
+      const record = otpStore[email];
+      if (!record) {
+        return res.status(400).json({ message: 'No OTP requested. Please request again.' });
+      }
+
+      if (Date.now() > record.expiresAt) {
+        delete otpStore[email];
+        return res.status(400).json({ message: 'OTP expired. Please request a new one.' });
+      }
+
+      if (record.otp !== otp) {
+        return res.status(400).json({ message: 'Incorrect OTP. Please try again.' });
+      }
+
+      delete otpStore[email];
+
+      const verificationToken = jwt.sign(
+        { email, verified: true },
+        process.env.JWT_SECRET,
+        { expiresIn: '15m' }
+      );
+
+      res.json({
+        success: true,
+        message: 'OTP verified successfully',
+        verificationToken,
+      });
     });
 
 
